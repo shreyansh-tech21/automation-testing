@@ -154,6 +154,20 @@ app.get('/executions/latest', async (req, res) => {
   }
 });
 
+// Get single execution by id
+app.get('/executions/:id', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: 'Database not connected' });
+  }
+  try {
+    const execution = await Execution.findById(req.params.id).lean();
+    if (!execution) return res.status(404).json({ error: 'Execution not found' });
+    res.json(execution);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/run-test/:id', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
     return res.status(503).json({ error: 'Database not connected' });

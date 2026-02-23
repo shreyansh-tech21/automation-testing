@@ -21,6 +21,8 @@ interface Stats {
 interface Execution {
   _id: string;
   testId?: string;
+  testName?: string;
+  profile?: string;
   overallStatus?: string;
   createdAt?: string;
   results?: unknown[];
@@ -80,7 +82,7 @@ export default function DashboardPage() {
       <Link href="/" className="text-slate-600 hover:underline mb-6 inline-block">
         ← Home
       </Link>
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-slate-800 mb-6">Automated Testing Dashboard</h1>
 
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -127,27 +129,32 @@ export default function DashboardPage() {
         ) : (
           <ul className="divide-y divide-slate-200">
             {executions.slice(0, 10).map((exec) => (
-              <li
-                key={exec._id}
-                className="p-4 flex justify-between items-center text-sm"
-              >
-                <span className="text-slate-700">
-                  {exec.testId ?? exec._id} ·{" "}
-                  {exec.createdAt
-                    ? new Date(exec.createdAt).toLocaleString()
-                    : "—"}
-                </span>
-                <span
-                  className={
-                    exec.overallStatus === "Passed"
-                      ? "text-green-600 font-medium"
-                      : exec.overallStatus === "Failed"
-                        ? "text-red-600 font-medium"
-                        : "text-slate-500"
-                  }
+              <li key={exec._id}>
+                <Link
+                  href={`/execution/${exec._id}`}
+                  className="p-4 flex justify-between items-center text-sm hover:bg-slate-50 block"
                 >
-                  {exec.overallStatus ?? "—"}
-                </span>
+                  <span className="text-slate-700">
+                    {[exec.profile, exec.testName ?? exec.testId ?? exec._id]
+                      .filter(Boolean)
+                      .join(" · ")}{" "}
+                    ·{" "}
+                    {exec.createdAt
+                      ? new Date(exec.createdAt).toLocaleString()
+                      : "—"}
+                  </span>
+                  <span
+                    className={
+                      exec.overallStatus === "Passed"
+                        ? "text-green-600 font-medium"
+                        : exec.overallStatus === "Failed"
+                          ? "text-red-600 font-medium"
+                          : "text-slate-500"
+                    }
+                  >
+                    {exec.overallStatus ?? "—"}
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
