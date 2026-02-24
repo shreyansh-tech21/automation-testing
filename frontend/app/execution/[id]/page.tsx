@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -42,6 +43,9 @@ export default function ExecutionDetail() {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
+      <Link href="/dashboard" className="text-slate-600 hover:underline mb-4 inline-block">
+        ← Dashboard
+      </Link>
       <h2 className="text-2xl font-bold mb-4">
         {execution.testName}
       </h2>

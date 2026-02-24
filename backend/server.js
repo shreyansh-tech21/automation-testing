@@ -121,13 +121,26 @@ app.get("/stats", async (req, res) => {
 
     const totalHeals = healAggregation.reduce((acc, item) => acc + item.count, 0);
 
+    const trend = await Execution.aggregate([
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
     res.json({
       totalExecutions,
       passRate: totalExecutions
         ? ((passedExecutions / totalExecutions) * 100).toFixed(2)
         : 0,
       totalHeals,
-      strategyBreakdown: healAggregation
+      strategyBreakdown: healAggregation,
+      trend
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -189,6 +202,7 @@ app.post('/run-test/:id', async (req, res) => {
     const execution = await Execution.create({
       testId: test._id,
       testName: test.name,
+      profile: test.profile,
       results: results.results,
       overallStatus: results.overallStatus,
     });
