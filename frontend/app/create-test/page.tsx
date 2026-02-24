@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import axios from "axios";
 
 interface Step {
@@ -18,35 +19,36 @@ export default function CreateTest() {
   const [steps, setSteps] = useState<Step[]>([]);
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold mb-6">
+    <div className="p-8 bg-slate-950 min-h-screen">
+      <Link href="/" className="text-slate-400 hover:text-slate-200 mb-6 inline-block transition">← Home</Link>
+      <h1 className="text-3xl font-bold text-slate-100 mb-6">
         Create No-Code Test
       </h1>
 
       {/* Basic Test Info */}
-      <div className="bg-white shadow rounded-xl p-6 mb-6">
+      <div className="bg-slate-800/80 border border-slate-700 shadow-xl rounded-xl p-6 mb-6">
         <div className="mb-4">
-          <label className="block mb-1">Test Name</label>
+          <label className="block mb-1 text-slate-300">Test Name</label>
           <input
-            className="w-full border p-2 rounded"
+            className="w-full border border-slate-600 bg-slate-800 text-slate-100 p-2 rounded-lg focus:ring-2 focus:ring-emerald-500/50"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
         </div>
 
         <div className="mb-4">
-          <label className="block mb-1">URL</label>
+          <label className="block mb-1 text-slate-300">URL</label>
           <input
-            className="w-full border p-2 rounded"
+            className="w-full border border-slate-600 bg-slate-800 text-slate-100 p-2 rounded-lg focus:ring-2 focus:ring-emerald-500/50"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />
         </div>
 
         <div>
-          <label className="block mb-1">Profile</label>
+          <label className="block mb-1 text-slate-300">Profile</label>
           <select
-            className="border p-2 rounded"
+            className="border border-slate-600 bg-slate-800 text-slate-100 p-2 rounded-lg focus:ring-2 focus:ring-emerald-500/50"
             value={profile}
             onChange={(e) => setProfile(e.target.value)}
           >
@@ -58,12 +60,12 @@ export default function CreateTest() {
       </div>
 
       {/* Steps Section */}
-      <div className="bg-white shadow rounded-xl p-6">
-        <h2 className="text-xl font-semibold mb-4">Test Steps</h2>
+      <div className="bg-slate-800/80 border border-slate-700 shadow-xl rounded-xl p-6">
+        <h2 className="text-xl font-semibold text-slate-100 mb-4">Test Steps</h2>
 
         <button
           type="button"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg mb-4 hover:bg-blue-700"
+          className="bg-emerald-600 text-white px-4 py-2 rounded-lg mb-4 hover:bg-emerald-500 transition"
           onClick={() =>
             setSteps([
               ...steps,
@@ -87,11 +89,11 @@ export default function CreateTest() {
         {steps.map((step, index) => (
           <div
             key={index}
-            className="grid grid-cols-6 gap-3 mb-4 border border-slate-200 p-4 rounded-lg"
+            className="grid grid-cols-6 gap-3 mb-4 border border-slate-600 bg-slate-800/50 p-4 rounded-lg"
           >
             <input
               placeholder="Label"
-              className="border border-slate-300 p-2 rounded"
+              className="border border-slate-600 bg-slate-800 text-slate-100 p-2 rounded-lg placeholder-slate-500"
               value={step.label}
               onChange={(e) => {
                 const updated = steps.map((s, i) =>
@@ -101,7 +103,7 @@ export default function CreateTest() {
               }}
             />
             <select
-              className="border border-slate-300 p-2 rounded"
+              className="border border-slate-600 bg-slate-800 text-slate-100 p-2 rounded-lg"
               value={step.action}
               onChange={(e) => {
                 const updated = steps.map((s, i) =>
@@ -115,7 +117,7 @@ export default function CreateTest() {
             </select>
             <input
               placeholder="Value"
-              className="border border-slate-300 p-2 rounded"
+              className="border border-slate-600 bg-slate-800 text-slate-100 p-2 rounded-lg placeholder-slate-500"
               value={step.value}
               onChange={(e) => {
                 const updated = steps.map((s, i) =>
@@ -126,7 +128,7 @@ export default function CreateTest() {
             />
             <input
               placeholder="Expected"
-              className="border border-slate-300 p-2 rounded"
+              className="border border-slate-600 bg-slate-800 text-slate-100 p-2 rounded-lg placeholder-slate-500"
               value={step.expected}
               onChange={(e) => {
                 const updated = steps.map((s, i) =>
@@ -136,7 +138,7 @@ export default function CreateTest() {
               }}
             />
             <select
-              className="border border-slate-300 p-2 rounded"
+              className="border border-slate-600 bg-slate-800 text-slate-100 p-2 rounded-lg"
               value={step.type}
               onChange={(e) => {
                 const updated = steps.map((s, i) =>
@@ -150,7 +152,7 @@ export default function CreateTest() {
             </select>
             <button
               type="button"
-              className="bg-red-500 text-white rounded px-3 py-2 hover:bg-red-600"
+              className="bg-red-600 text-white rounded-lg px-3 py-2 hover:bg-red-500 transition"
               onClick={() => {
                 setSteps(steps.filter((_, i) => i !== index));
               }}
@@ -162,7 +164,7 @@ export default function CreateTest() {
 
         <button
           type="button"
-          className="bg-green-600 text-white px-6 py-3 rounded-lg mt-6 hover:bg-green-700"
+          className="bg-emerald-600 text-white px-6 py-3 rounded-lg mt-6 hover:bg-emerald-500 transition"
           onClick={async () => {
             try {
               const res = await axios.post(
@@ -185,7 +187,7 @@ export default function CreateTest() {
 
         <button
           type="button"
-          className="bg-purple-600 text-white px-6 py-3 rounded-lg mt-4 ml-4 hover:bg-purple-700"
+          className="bg-violet-600 text-white px-6 py-3 rounded-lg mt-4 ml-4 hover:bg-violet-500 transition"
           onClick={async () => {
             try {
               const createRes = await axios.post(

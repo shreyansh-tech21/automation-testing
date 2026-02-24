@@ -46,19 +46,19 @@ export default function AllExecutionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-slate-600">Loading executions...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <p className="text-slate-400">Loading executions...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen p-8">
-        <Link href="/dashboard" className="text-slate-600 hover:underline mb-4 inline-block">
+      <div className="min-h-screen p-8 bg-slate-950">
+        <Link href="/dashboard" className="text-slate-400 hover:text-slate-200 mb-4 inline-block">
           ← Dashboard
         </Link>
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
+        <div className="bg-red-950/50 border border-red-800 text-red-200 rounded-xl p-4">
           <p className="font-medium">Error</p>
           <p>{error}</p>
         </div>
@@ -67,16 +67,16 @@ export default function AllExecutionsPage() {
   }
 
   return (
-    <div className="min-h-screen p-8">
-      <Link href="/dashboard" className="text-slate-600 hover:underline mb-6 inline-block">
+    <div className="min-h-screen p-8 bg-slate-950">
+      <Link href="/dashboard" className="text-slate-400 hover:text-slate-200 mb-6 inline-block transition">
         ← Dashboard
       </Link>
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">All Executions</h1>
+      <h1 className="text-2xl font-bold text-slate-100 mb-6">All Executions</h1>
 
       <div className="mb-6 flex flex-wrap items-center gap-4">
-        <label className="text-slate-700 font-medium">Filter by profile:</label>
+        <label className="text-slate-300 font-medium">Filter by profile:</label>
         <select
-          className="border border-slate-300 p-2 rounded-lg text-slate-800 bg-white"
+          className="border border-slate-600 bg-slate-800 text-slate-100 p-2 rounded-lg focus:ring-2 focus:ring-emerald-500/50"
           value={selectedProfile}
           onChange={(e) => setSelectedProfile(e.target.value)}
         >
@@ -90,20 +90,20 @@ export default function AllExecutionsPage() {
         </span>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-slate-800/80 rounded-xl border border-slate-700 shadow-lg overflow-hidden">
         {filteredExecutions.length === 0 ? (
           <p className="p-6 text-slate-500 text-center">
             No executions found for this profile.
           </p>
         ) : (
-          <ul className="divide-y divide-slate-200">
+          <ul className="divide-y divide-slate-700">
             {filteredExecutions.map((exec) => (
               <li key={exec._id}>
                 <Link
                   href={`/execution/${exec._id}`}
-                  className="p-4 flex justify-between items-center text-sm hover:bg-slate-50 block"
+                  className="p-4 flex justify-between items-center text-sm hover:bg-slate-700/50 block transition"
                 >
-                  <span className="text-slate-700">
+                  <span className="text-slate-300">
                     {[exec.profile, exec.testName ?? exec.testId ?? exec._id]
                       .filter(Boolean)
                       .join(" · ")}{" "}
@@ -115,9 +115,9 @@ export default function AllExecutionsPage() {
                   <span
                     className={
                       exec.overallStatus === "Passed"
-                        ? "text-green-600 font-medium"
+                        ? "text-emerald-400 font-medium"
                         : exec.overallStatus === "Failed"
-                          ? "text-red-600 font-medium"
+                          ? "text-red-400 font-medium"
                           : "text-slate-500"
                     }
                   >
