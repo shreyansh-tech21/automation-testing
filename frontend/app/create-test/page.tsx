@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import axios from "axios";
+import { api } from "@/lib/api";
+import { useAuthGuard } from "@/lib/useAuthGuard";
 
 interface Step {
   label: string;
@@ -13,6 +14,7 @@ interface Step {
 }
 
 export default function CreateTest() {
+  useAuthGuard(["admin", "tester"]);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [profile, setProfile] = useState("smoke");
@@ -167,15 +169,12 @@ export default function CreateTest() {
           className="bg-emerald-600 text-white px-6 py-3 rounded-lg mt-6 hover:bg-emerald-500 transition"
           onClick={async () => {
             try {
-              const res = await axios.post(
-                "http://localhost:5000/create-test",
-                {
-                  name,
-                  url,
-                  profile,
-                  steps,
-                }
-              );
+              const res = await api.post("/create-test", {
+                name,
+                url,
+                profile,
+                steps,
+              });
               alert("Test saved successfully!");
             } catch (err) {
               alert("Error saving test");
@@ -190,12 +189,9 @@ export default function CreateTest() {
           className="bg-violet-600 text-white px-6 py-3 rounded-lg mt-4 ml-4 hover:bg-violet-500 transition"
           onClick={async () => {
             try {
-              const createRes = await axios.post(
-                "http://localhost:5000/create-test",
-                { name, url, profile, steps }
-              );
+              const createRes = await api.post("/create-test", { name, url, profile, steps });
               const id = createRes.data._id;
-              await axios.post(`http://localhost:5000/run-test/${id}`);
+              await api.post(`/run-test/${id}`);
               alert("Test executed!");
             } catch (err) {
               alert("Error running test");

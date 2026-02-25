@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import axios from "axios";
-
-const API_BASE = "http://localhost:5000";
+import { api } from "@/lib/api";
+import { useAuthGuard } from "@/lib/useAuthGuard";
 
 interface Execution {
   _id: string;
@@ -16,6 +15,7 @@ interface Execution {
 }
 
 export default function AllExecutionsPage() {
+  useAuthGuard();
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +24,7 @@ export default function AllExecutionsPage() {
   useEffect(() => {
     const fetchExecutions = async () => {
       try {
-        const res = await axios.get<Execution[]>(`${API_BASE}/executions`);
+        const res = await api.get<Execution[]>("/executions");
         setExecutions(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         setError(

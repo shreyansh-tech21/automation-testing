@@ -26,9 +26,9 @@ ChartJS.register(
 );
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import axios from "axios";
-
-const API_BASE = "http://localhost:5000";
+import { api } from "@/lib/api";
+import { getToken } from "@/lib/auth";
+import { useAuthGuard } from "@/lib/useAuthGuard";
 
 const chartOptions = {
   responsive: true,
@@ -71,12 +71,12 @@ interface Execution {
 }
 
 export default function DashboardPage() {
+  useAuthGuard();
   const [stats, setStats] = useState<Stats | null>(null);
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedProfile, setSelectedProfile]=useState("all");
-
+  const [selectedProfile, setSelectedProfile] = useState("all");
 
   const passedCount =
     stats?.totalExecutions != null && stats?.passRate != null
@@ -131,10 +131,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!getToken()) return;
       try {
         const [statsRes, execRes] = await Promise.all([
-          axios.get<Stats>(`${API_BASE}/stats`),
-          axios.get<Execution[]>(`${API_BASE}/executions`),
+          api.get<Stats>("/stats"),
+          api.get<Execution[]>("/executions"),
         ]);
         setStats(statsRes.data);
         setExecutions(Array.isArray(execRes.data) ? execRes.data : []);

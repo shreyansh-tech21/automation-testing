@@ -3,12 +3,14 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { api, API_BASE } from "@/lib/api";
+import { useAuthGuard } from "@/lib/useAuthGuard";
 
 interface StepResult {
   label?: string;
   status?: string;
   error?: string;
+  screenshot?: string;
   healed?: boolean;
   healStrategy?: string;
   similarityScore?: number;
@@ -32,15 +34,17 @@ interface AIAnalysis {
 }
 
 export default function ExecutionDetail() {
+  useAuthGuard();
   const { id } = useParams();
   const [execution, setExecution] = useState<Execution | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
+  const [screenshotPreview, setScreenshotPreview] = useState<{ stepIndex: number } | null>(null);
 
   const analyzeWithAI = async () => {
     setLoadingAI(true);
     try {
-      const res = await axios.post<AIAnalysis>(`http://localhost:5000/ai/analyze/${id}`);
+      const res = await api.post<AIAnalysis>(`/ai/analyze/${id}`);
       setAiAnalysis(res.data);
     } catch (err) {
       console.error("AI analysis error:", err);
@@ -52,7 +56,7 @@ export default function ExecutionDetail() {
   useEffect(() => {
     if (!id) return;
     const fetchData = async () => {
-      const res = await axios.get(`http://localhost:5000/executions/${id}`);
+      const res = await api.get(`/executions/${id}`);
       setExecution(res.data);
     };
     fetchData();
@@ -120,23 +124,76 @@ export default function ExecutionDetail() {
               <th className="pb-3 pr-4 text-slate-300">Healed</th>
               <th className="pb-3 pr-4 text-slate-300">Strategy</th>
               <th className="pb-3 pr-4 text-slate-300">Score</th>
-              <th className="pb-3 text-slate-300">Error</th>
+              <th className="pb-3 pr-4 text-slate-300">Error</th>
+              <th className="pb-3 text-slate-300">Screenshot</th>
             </tr>
           </thead>
           <tbody>
-            {(execution.results ?? []).map((step, index) => (
-              <tr key={index} className="border-b border-slate-700">
-                <td className="py-3 pr-4">{step.label}</td>
-                <td className="py-3 pr-4">{step.status}</td>
-                <td className="py-3 pr-4">{step.healed ? "Yes" : "No"}</td>
-                <td className="py-3 pr-4">{step.healStrategy || "-"}</td>
-                <td className="py-3 pr-4">{step.similarityScore ?? "-"}</td>
-                <td className="py-3 text-red-400">{step.error || "-"}</td>
-              </tr>
-            ))}
+            {(execution.results ?? []).map((step, index) => {
+              const hasScreenshot = step.status === "Failed" && step.screenshot && !step.screenshot.startsWith("(");
+              const screenshotUrl = hasScreenshot ? `${API_BASE}/executions/${id}/steps/${index}/screenshot` : null;
+              return (
+                <tr key={index} className="border-b border-slate-700">
+                  <td className="py-3 pr-4">{step.label}</td>
+                  <td className="py-3 pr-4">{step.status}</td>
+                  <td className="py-3 pr-4">{step.healed ? "Yes" : "No"}</td>
+                  <td className="py-3 pr-4">{step.healStrategy || "-"}</td>
+                  <td className="py-3 pr-4">{step.similarityScore ?? "-"}</td>
+                  <td className="py-3 text-red-400 max-w-xs truncate" title={step.error}>{step.error || "-"}</td>
+                  <td className="py-3 pr-4">
+                    {hasScreenshot ? (
+                      <span className="flex items-center gap-2">
+                        <a
+                          href={screenshotUrl!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-400 hover:text-indigo-300 text-sm"
+                        >
+                          Open in tab
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setScreenshotPreview(screenshotPreview?.stepIndex === index ? null : { stepIndex: index })}
+                          className="text-slate-400 hover:text-slate-200 text-sm"
+                        >
+                          {screenshotPreview?.stepIndex === index ? "Hide" : "Preview"}
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      {screenshotPreview != null && (() => {
+        const step = execution.results?.[screenshotPreview.stepIndex];
+        const hasScreenshot = step?.status === "Failed" && step?.screenshot && !step.screenshot.startsWith("(");
+        const url = hasScreenshot ? `${API_BASE}/executions/${id}/steps/${screenshotPreview.stepIndex}/screenshot` : null;
+        if (!url) return null;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+            onClick={() => setScreenshotPreview(null)}
+          >
+            <div className="relative max-w-4xl max-h-[90vh] overflow-auto rounded-xl border border-slate-600 bg-slate-900 p-2 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <p className="text-slate-400 text-sm mb-2">Failed step: {step?.label ?? screenshotPreview.stepIndex + 1}</p>
+              <img src={url} alt="Step screenshot" className="max-w-full max-h-[85vh] rounded" />
+              <button
+                type="button"
+                onClick={() => setScreenshotPreview(null)}
+                className="mt-2 w-full py-1.5 text-slate-300 hover:text-white bg-slate-700 rounded"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
