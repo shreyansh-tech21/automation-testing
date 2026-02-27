@@ -49,6 +49,27 @@ Restart the backend. In Slack, type `/run` or `/run smoke` (profile defaults to 
 
 ---
 
+## Troubleshooting: `/run` does nothing or “failed to run”
+
+1. **Slack must be able to reach your server**
+   - Slash commands are sent by Slack’s servers to the **Request URL** you configured. If the backend runs only on `localhost`, Slack cannot reach it and the command will fail (often with no visible error in Slack).
+   - **Fix:** Expose your backend with a public URL. For local dev, use [ngrok](https://ngrok.com): run `ngrok http 5000` (or your `PORT`), then in the Slack app set **Slash Commands** → **Request URL** to `https://YOUR-NGROK-HOST.ngrok.io/slack/command` (path must be exactly `/slack/command`).
+   - Free ngrok URLs change each time you restart ngrok; update the Request URL in the Slack app when that happens.
+
+2. **Request URL path**
+   - The backend route is `POST /slack/command` (no `/api` prefix). Use `https://your-domain-or-ngrok/slack/command`.
+
+3. **Check backend logs**
+   - When you type `/run`, the backend should log: `[Slack] /run command received, profile from text: ...`
+   - If you see `[Slack] Signing secret not configured` → set `SLACK_SIGNING_SECRET` in `backend/.env`.
+   - If you see `[Slack] Invalid signature` → copy the **Signing Secret** again from Slack app **Basic Information** → **App Credentials** and set `SLACK_SIGNING_SECRET` (no extra spaces).
+   - If you see no log at all when you run `/run` → Slack is not reaching your server; fix the Request URL (and ngrok if local).
+
+4. **Optional: skip signature verification (dev only)**
+   - To rule out signing issues: set `SKIP_SLACK_VERIFY=1` in `.env`, restart the backend, and try `/run` again. Only use this for local debugging; never in production.
+
+---
+
 ## Optional: Incoming Webhook (one-channel notifications)
 
 Best for: “Post test results to one channel.” No OAuth.

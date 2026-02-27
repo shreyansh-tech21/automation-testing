@@ -18,6 +18,7 @@ const auth = require("./middleware/authMiddleware");
 const allowRoles = require("./middleware/roleMiddleware");
 const User = require("./models/User");
 const authRoutes = require("./routes/authRoutes");
+const issueRoutes = require("./routes/IssueRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +27,7 @@ const slackClient = process.env.SLACK_BOT_TOKEN ? new WebClient(process.env.SLAC
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true, verify: (req, _res, buf) => { req.rawBody = buf; } }));
+app.use("/issues", issueRoutes);
 
 // Mongoose connection (use MONGO_URI in .env — e.g. MongoDB Atlas or mongodb://localhost:27017/yourdb)
 const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/automation-testing';
@@ -43,6 +45,19 @@ app.get("/users", auth, allowRoles("admin"), async (req, res) => {
   }
   try {
     const users = await User.find().select("name email role createdAt").lean();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Assignable users: testers only (for issue "Assigned to" dropdown; admin & tester can call)
+app.get("/users/assignable", auth, allowRoles("admin", "tester"), async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: "Database not connected" });
+  }
+  try {
+    const users = await User.find({ role: "tester" }).select("_id name email").lean();
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -285,6 +300,7 @@ app.post("/slack/command", (req, res, next) => {
   if (skipSlackVerify) return next();
   return verifySlackSignature(req, res, next);
 }, (req, res) => {
+  console.log("[Slack] /run command received, profile from text:", (req.body?.text || "").trim() || "(default: smoke)");
   res.status(200).send("Processing...");
 
   const channelId = req.body.channel_id;

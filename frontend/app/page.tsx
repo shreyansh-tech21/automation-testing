@@ -21,7 +21,7 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-slate-950">
       <h1 className="text-4xl font-bold text-slate-100 mb-3 tracking-tight">
-        Automation Testing
+        AutoTestIQ – AI-Driven End-to-End Test Automation Platform
       </h1>
       <p className="text-slate-400 mb-10 max-w-md text-center text-lg">
         Run and view test executions with self-healing locators.

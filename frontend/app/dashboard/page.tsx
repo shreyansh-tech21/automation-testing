@@ -70,10 +70,19 @@ interface Execution {
   results?: unknown[];
 }
 
+interface AssignedIssue {
+  _id: string;
+  title?: string;
+  priority?: string;
+  createdAt?: string;
+  linkedExecutionId?: { _id?: string; testName?: string } | string;
+}
+
 export default function DashboardPage() {
   useAuthGuard();
   const [stats, setStats] = useState<Stats | null>(null);
   const [executions, setExecutions] = useState<Execution[]>([]);
+  const [assignedIssues, setAssignedIssues] = useState<AssignedIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState("all");
@@ -133,12 +142,14 @@ export default function DashboardPage() {
     const fetchData = async () => {
       if (!getToken()) return;
       try {
-        const [statsRes, execRes] = await Promise.all([
+        const [statsRes, execRes, assignedRes] = await Promise.all([
           api.get<Stats>("/stats"),
           api.get<Execution[]>("/executions"),
+          api.get<AssignedIssue[]>("/issues/assigned-to-me").catch(() => ({ data: [] })),
         ]);
         setStats(statsRes.data);
         setExecutions(Array.isArray(execRes.data) ? execRes.data : []);
+        setAssignedIssues(Array.isArray(assignedRes.data) ? assignedRes.data : []);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load dashboard data"
@@ -296,6 +307,69 @@ export default function DashboardPage() {
                 </Link>
               </li>
             ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="bg-slate-800/80 rounded-xl border border-slate-700 shadow-lg overflow-hidden mt-8">
+        <div className="p-4 border-b border-slate-700 flex justify-between items-center flex-wrap gap-2">
+          <h2 className="font-semibold text-slate-100">Issues assigned to you</h2>
+          <Link
+            href="/issues"
+            className="text-emerald-400 hover:text-emerald-300 text-sm font-medium transition"
+          >
+            View all issues →
+          </Link>
+        </div>
+        {assignedIssues.length === 0 ? (
+          <div className="p-10 text-center">
+            <p className="text-slate-300 font-medium mb-1">No issues assigned to you</p>
+            <p className="text-slate-500 text-sm">There are no issues assigned to you. You’ll see them here when someone assigns you one.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-slate-700">
+            {assignedIssues.slice(0, 10).map((issue) => {
+              const executionId =
+                typeof issue.linkedExecutionId === "object" && issue.linkedExecutionId?._id
+                  ? issue.linkedExecutionId._id
+                  : typeof issue.linkedExecutionId === "string"
+                    ? issue.linkedExecutionId
+                    : null;
+              return (
+                <li key={issue._id} className="hover:bg-slate-700/50 transition">
+                  <div className="p-4 flex justify-between items-center gap-4 flex-wrap">
+                    <span className="text-slate-300 text-sm flex-1 min-w-0">
+                      {issue.title ?? "Untitled"}{" "}
+                      {typeof issue.linkedExecutionId === "object" && issue.linkedExecutionId?.testName
+                        ? `· ${issue.linkedExecutionId.testName}`
+                        : ""}{" "}
+                      ·{" "}
+                      {issue.createdAt
+                        ? new Date(issue.createdAt).toLocaleString()
+                        : "—"}
+                    </span>
+                    <span className="text-slate-400 text-sm font-medium shrink-0">
+                      {issue.priority ?? "—"}
+                    </span>
+                    {executionId ? (
+                      <Link
+                        href={`/execution/${executionId}`}
+                        className="text-emerald-400 hover:text-emerald-300 text-sm font-medium shrink-0 transition"
+                      >
+                        Go to issue →
+                      </Link>
+                    ) : (
+                      <Link
+                        href={`/issues/${issue._id}`}
+                        className="text-slate-500 hover:text-slate-400 text-sm shrink-0 transition"
+                      >
+                        View issue
+                      </Link>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

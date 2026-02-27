@@ -10,7 +10,8 @@
     "test:run": "node test-run-test.js",
     "test:all": "node test-all.js",
     "test:profile": "node test-run-profile.js",
-    "test:delete": "node test-delete-test.js"
+    "test:delete": "node test-delete-test.js",
+    "test:issues": "node test-issues.js"
   },
   "keywords": [],
   "author": "",
