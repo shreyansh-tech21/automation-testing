@@ -154,14 +154,8 @@ Useful backend references: `backend/TEST-SCRIPTS.md`, `backend/PROJECT-REVIEW.md
 
 ---
 
-## License
-
-Specify your license here (e.g. MIT) or remove this section if the repo is private only.
-
----
 
 ## Author
 
-**Your name** — [LinkedIn](https://www.linkedin.com/in/YOUR_PROFILE) · [Portfolio](https://YOUR_SITE)  
+**Shreyansh Karamtot** — [LinkedIn](https://www.linkedin.com/in/shreyansh-k-50a7871b6) 
 
-*Update the links above when you publish.*
