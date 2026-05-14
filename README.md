@@ -1,4 +1,4 @@
-# Automation Testing Platform
+# AutoTestIQ
 
 Full-stack **test automation** workspace: create and run **UI** tests (Playwright with self-healing locators) and **API** tests from a **Next.js** dashboard, persist **executions** in **MongoDB**, and optionally hook **Slack** and **AI** analysis.
 
