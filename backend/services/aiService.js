@@ -38,7 +38,7 @@ Return ONLY valid JSON in this format:
     const response=await groq.chat.completions.create({
         model:"openai/gpt-oss-120b",
         messages:[
-            {role:"system",content:"You are an expert QA automation assistant."},
+            {role:"system",content:"You are an expert QA automation assistant. Return only valid JSON. Do not include explanations outside JSON."},
             {role:"user",content:prompt}
         ],
         temperature:0.7,

@@ -1,27 +1,38 @@
-const {chromium}=require('playwright');
-const path=require('path');
-const fs=require('fs');
-const selfHeal=require('./utils/selfHeal');
+const { chromium } = require("playwright");
+const path = require("path");
+const fs = require("fs");
+const selfHeal = require("./utils/selfHeal");
 
-async function runTest(test) {
+/**
+ * @param {object} test - Test document with url, steps
+ * @param {{ onStepComplete?: (stepResult: object) => Promise<void> }} [opts] - Optional: called after each step for live updates
+ */
+async function runTest(test, opts = {}) {
+    const url = test.url && String(test.url).trim();
+    if (!url) {
+        throw new Error("UI test has no start URL. Add a 'url' to the test or use testType 'api' for API tests.");
+    }
     const results = [];
     const browser = await chromium.launch({ headless: false });
     const page = await browser.newPage();
 
-    await page.goto(test.url, { waitUntil: "domcontentloaded" });
+    await page.goto(url, { waitUntil: "domcontentloaded" });
 
     for (const step of test.steps) {
         let stepResult = {
             label: step.label,
             status: "Passed",
             error: "",
-            screenshot: ""
+            screenshot: "",
+            action: step.action,
+            filledValue: step.action === "fill" && step.value != null ? String(step.value) : undefined,
+            expected: step.expected,
+            type: step.type
         };
         try {
             if (step.action === "fill") {
                 const healResult = await selfHeal(page, step);
                 await healResult.element.fill(step.value);
-
                 stepResult.healed = healResult.strategy !== "label";
                 stepResult.healStrategy = healResult.strategy;
                 stepResult.similarityScore = healResult.score;
@@ -30,22 +41,39 @@ async function runTest(test) {
                 }
             } else if (step.action === "click") {
                 const healResult = await selfHeal(page, step);
-                await healResult.element.click();
-
+                await Promise.all([
+                    page.waitForLoadState("domcontentloaded").catch(() => {}),
+                    healResult.element.click()
+                ]);
                 stepResult.healed = healResult.strategy !== "label";
                 stepResult.healStrategy = healResult.strategy;
                 stepResult.similarityScore = healResult.score;
-            }
-            // Steps with only "expected" (no action) are assertion-only; wait for text then check
-            if (step.expected) {
-                // Wait for the expected text to appear (page may still be loading after click/navigation)
+            } else if (step.action === "assert" || (step.expected && step.action !== "fill" && step.action !== "click")) {
+                // Assert step: only check if expected text is present on the page (no element lookup by label)
+                if (!step.expected || !step.expected.trim()) {
+                    throw new Error("Assert step requires 'expected' text to check");
+                }
+                const expectedText = step.expected.trim();
                 try {
-                    await page.getByText(step.expected, { exact: false }).first().waitFor({ state: 'visible', timeout: 10000 });
+                    await page.getByText(expectedText, { exact: false }).first().waitFor({ state: "visible", timeout: 10000 });
                 } catch (waitErr) {
-                    const bodyText = await page.locator('body').innerText();
+                    const bodyText = await page.locator("body").innerText();
+                    throw new Error(`Expected text "${expectedText}" not found on page (waited 10s). Page text (first 300 chars): ${bodyText.slice(0, 300)}`);
+                }
+                const textFound = await page.locator("body").innerText();
+                if (!textFound.includes(expectedText)) {
+                    throw new Error(`Expected text "${expectedText}" not found in the page`);
+                }
+            }
+            if (step.expected && (step.action === "fill" || step.action === "click")) {
+                // After fill/click: check expected text
+                try {
+                    await page.getByText(step.expected, { exact: false }).first().waitFor({ state: "visible", timeout: 10000 });
+                } catch (waitErr) {
+                    const bodyText = await page.locator("body").innerText();
                     throw new Error(`Expected "${step.expected}" not found on page (waited 10s). Page text (first 300 chars): ${bodyText.slice(0, 300)}`);
                 }
-                const textFound = await page.locator('body').innerText();
+                const textFound = await page.locator("body").innerText();
                 if (!textFound.includes(step.expected)) {
                     throw new Error(`Expected "${step.expected}" not found in the page`);
                 }
@@ -64,6 +92,9 @@ async function runTest(test) {
             }
         } finally {
             results.push(stepResult);
+            if (opts.onStepComplete) {
+                await Promise.resolve(opts.onStepComplete(stepResult));
+            }
         }
     }
     const overallStatus=results.every(result=>result.status==="Passed")?"Passed":"Failed";

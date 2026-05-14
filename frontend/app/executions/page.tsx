@@ -111,6 +111,9 @@ export default function AllExecutionsPage() {
                     {exec.createdAt
                       ? new Date(exec.createdAt).toLocaleString()
                       : "—"}
+                    <span className="block mt-1 font-mono text-xs text-slate-500" title="Execution ID (e.g. for API/curl)">
+                      ID: {exec._id}
+                    </span>
                   </span>
                   <span
                     className={

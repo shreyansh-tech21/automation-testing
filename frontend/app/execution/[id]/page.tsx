@@ -2,9 +2,17 @@
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuthGuard } from "@/lib/useAuthGuard";
+
+interface StepRequest {
+  method?: string;
+  url?: string;
+  resolvedUrl?: string;
+  headers?: Record<string, unknown>;
+  body?: unknown;
+}
 
 interface StepResult {
   label?: string;
@@ -14,6 +22,14 @@ interface StepResult {
   healed?: boolean;
   healStrategy?: string;
   similarityScore?: number;
+  action?: string;
+  filledValue?: string;
+  expected?: string;
+  type?: string;
+  request?: StepRequest;
+  response?: { status?: number; headers?: unknown; body?: unknown };
+  responseStatus?: number;
+  assertionFailureReason?: string;
 }
 
 interface Execution {
@@ -21,6 +37,8 @@ interface Execution {
   testId?: string;
   testName?: string;
   profile?: string;
+  type?: string;
+  url?: string;
   overallStatus?: string;
   createdAt?: string;
   results?: StepResult[];
@@ -43,9 +61,10 @@ export default function ExecutionDetail() {
   const [screenshotPreview, setScreenshotPreview] = useState<{ stepIndex: number } | null>(null);
   const [screenshotBlobUrl, setScreenshotBlobUrl] = useState<string | null>(null);
   const [screenshotLoadError, setScreenshotLoadError] = useState<string | null>(null);
-  const [openInTabLoading, setOpenInTabLoading] = useState<number | null>(null); // stepIndex when loading
   const screenshotBlobUrlRef = useRef<string | null>(null);
   const [showIssueForm, setShowIssueForm] = useState(false);
+  const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+  const prevResultsLengthRef = useRef(0);
 
   // Load screenshot with auth when preview is opened (browser doesn't send Bearer for <img src>)
   useEffect(() => {
@@ -82,19 +101,6 @@ export default function ExecutionDetail() {
     };
   }, [id, execution, screenshotPreview]);
 
-  const openScreenshotInNewTab = async (stepIndex: number) => {
-    setOpenInTabLoading(stepIndex);
-    try {
-      const res = await api.get(`/executions/${id}/steps/${stepIndex}/screenshot`, { responseType: "blob" });
-      const url = URL.createObjectURL(res.data as Blob);
-      window.open(url, "_blank");
-      // Don't revoke so the new tab can display the image
-    } catch {
-      setOpenInTabLoading(null);
-    }
-    setOpenInTabLoading(null);
-  };
-
   const analyzeWithAI = async () => {
     setLoadingAI(true);
     try {
@@ -107,14 +113,36 @@ export default function ExecutionDetail() {
     }
   };
 
-  useEffect(() => {
+  const fetchExecution = useCallback(async () => {
     if (!id) return;
-    const fetchData = async () => {
-      const res = await api.get(`/executions/${id}`);
-      setExecution(res.data);
-    };
-    fetchData();
+    const res = await api.get(`/executions/${id}`);
+    setExecution(res.data);
   }, [id]);
+
+  useEffect(() => {
+    fetchExecution();
+  }, [fetchExecution]);
+
+  // Poll while test is running so the table updates step-by-step in real time
+  useEffect(() => {
+    if (!execution || execution.overallStatus !== "Running") return;
+    const interval = setInterval(fetchExecution, 800);
+    return () => clearInterval(interval);
+  }, [execution?.overallStatus, fetchExecution]);
+
+  // When a new step appears during a live run, scroll it into view
+  useEffect(() => {
+    const len = execution?.results?.length ?? 0;
+    if (execution?.overallStatus === "Running" && len > prevResultsLengthRef.current) {
+      prevResultsLengthRef.current = len;
+      setTimeout(() => {
+        const lastRow = tableBodyRef.current?.querySelector(`tr:nth-child(${len})`);
+        lastRow?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 100);
+    } else if (execution?.overallStatus !== "Running") {
+      prevResultsLengthRef.current = len;
+    }
+  }, [execution?.results?.length, execution?.overallStatus]);
 
   if (!execution) {
     return (
@@ -132,14 +160,36 @@ export default function ExecutionDetail() {
       <h2 className="text-2xl font-bold text-slate-100 mb-2">
         {execution.testName}
       </h2>
+      <p className="text-slate-500 text-sm font-mono mb-1" title="Use this ID for API calls (e.g. DELETE /executions/:id)">
+        Execution ID: {id}
+      </p>
+      {execution.url && (
+        <p className="text-slate-400 text-sm mb-1">
+          URL: <span className="font-mono text-slate-300">{execution.url}</span>
+        </p>
+      )}
       {execution.profile && (
         <p className="text-slate-400 text-sm mb-4">Profile: {execution.profile}</p>
       )}
+      {execution.overallStatus === "Running" && (
+        <div className="mb-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
+          <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse" aria-hidden />
+          <p className="text-amber-400 font-medium">
+            Run in progress — steps are updating below in real time.
+          </p>
+          <span className="text-slate-400 text-sm">
+            ({(execution.results ?? []).length} step(s) so far)
+          </span>
+        </div>
+      )}
+
       <p
         className={
           execution.overallStatus === "Passed"
             ? "text-emerald-400 font-medium"
-            : "text-red-400 font-medium"
+            : execution.overallStatus === "Running"
+              ? "text-amber-400 font-medium"
+              : "text-red-400 font-medium"
         }
       >
         {execution.overallStatus}
@@ -148,7 +198,7 @@ export default function ExecutionDetail() {
       <div className="mt-4 flex flex-wrap gap-3">
         <button
           onClick={analyzeWithAI}
-          disabled={loadingAI}
+          disabled={loadingAI || execution.overallStatus === "Running"}
           className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition"
         >
           {loadingAI ? "Analyzing..." : "Analyze with AI"}
@@ -183,7 +233,11 @@ export default function ExecutionDetail() {
         <table className="w-full text-slate-200">
           <thead>
             <tr className="border-b border-slate-600 text-left">
-              <th className="pb-3 pr-4 text-slate-300">Step</th>
+              <th className="pb-3 pr-4 text-slate-300">Label</th>
+              <th className="pb-3 pr-4 text-slate-300">Action</th>
+              <th className="pb-3 pr-4 text-slate-300">Value</th>
+              <th className="pb-3 pr-4 text-slate-300">Expected</th>
+              <th className="pb-3 pr-4 text-slate-300">Type</th>
               <th className="pb-3 pr-4 text-slate-300">Status</th>
               <th className="pb-3 pr-4 text-slate-300">Healed</th>
               <th className="pb-3 pr-4 text-slate-300">Strategy</th>
@@ -192,36 +246,45 @@ export default function ExecutionDetail() {
               <th className="pb-3 text-slate-300">Screenshot</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={tableBodyRef}>
             {(execution.results ?? []).map((step, index) => {
               const hasScreenshot = step.status === "Failed" && step.screenshot && !step.screenshot.startsWith("(");
+              const req = step.request;
+              const valueDisplay = req
+                ? `${req.method ?? "?"} ${req.resolvedUrl ?? req.url ?? "-"}`
+                : step.filledValue != null && step.filledValue !== ""
+                  ? step.filledValue
+                  : (step.responseStatus ?? step.response?.status) != null
+                    ? `HTTP ${step.responseStatus ?? step.response?.status}`
+                    : step.action === "click"
+                      ? "click"
+                      : "-";
               return (
                 <tr key={index} className="border-b border-slate-700">
                   <td className="py-3 pr-4">{step.label}</td>
+                  <td className="py-3 pr-4">{step.action ?? "-"}</td>
+                  <td className="py-3 pr-4 max-w-xs font-mono text-sm">
+                    {valueDisplay}
+                    {req?.body != null && Object.keys(req.body as object).length > 0 && (
+                      <span className="block text-slate-500 text-xs mt-0.5">+ body</span>
+                    )}
+                  </td>
+                  <td className="py-3 pr-4 max-w-xs">{step.expected ?? "-"}</td>
+                  <td className="py-3 pr-4">{step.type ?? "-"}</td>
                   <td className="py-3 pr-4">{step.status}</td>
                   <td className="py-3 pr-4">{step.healed ? "Yes" : "No"}</td>
                   <td className="py-3 pr-4">{step.healStrategy || "-"}</td>
                   <td className="py-3 pr-4">{step.similarityScore ?? "-"}</td>
-                  <td className="py-3 text-red-400 max-w-xs truncate" title={step.error}>{step.error || "-"}</td>
+                  <td className="py-3 text-red-400 max-w-xs truncate" title={step.error ?? step.assertionFailureReason}>{step.error ?? step.assertionFailureReason ?? "-"}</td>
                   <td className="py-3 pr-4">
                     {hasScreenshot ? (
-                      <span className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openScreenshotInNewTab(index)}
-                          disabled={openInTabLoading === index}
-                          className="text-indigo-400 hover:text-indigo-300 text-sm disabled:opacity-50"
-                        >
-                          {openInTabLoading === index ? "Loading…" : "Open in tab"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setScreenshotPreview(screenshotPreview?.stepIndex === index ? null : { stepIndex: index })}
-                          className="text-slate-400 hover:text-slate-200 text-sm"
-                        >
-                          {screenshotPreview?.stepIndex === index ? "Hide" : "Preview"}
-                        </button>
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setScreenshotPreview(screenshotPreview?.stepIndex === index ? null : { stepIndex: index })}
+                        className="text-slate-400 hover:text-slate-200 text-sm"
+                      >
+                        {screenshotPreview?.stepIndex === index ? "Hide" : "Preview"}
+                      </button>
                     ) : (
                       <span className="text-slate-500">—</span>
                     )}

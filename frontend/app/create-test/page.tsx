@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuthGuard } from "@/lib/useAuthGuard";
 
@@ -15,10 +16,25 @@ interface Step {
 
 export default function CreateTest() {
   useAuthGuard(["admin", "tester"]);
+  const router = useRouter();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [profile, setProfile] = useState("smoke");
   const [steps, setSteps] = useState<Step[]>([]);
+  const [savingAndRunning, setSavingAndRunning] = useState(false);
+
+  if (savingAndRunning) {
+    return (
+      <div className="p-8 bg-slate-950 min-h-screen flex flex-col items-center justify-center">
+        <Link href="/" className="text-slate-400 hover:text-slate-200 mb-6 absolute top-8 left-8 transition">← Home</Link>
+        <div className="flex flex-col items-center gap-6">
+          <div className="h-10 w-10 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" aria-hidden />
+          <p className="text-slate-200 text-lg font-medium">Saving test and starting run…</p>
+          <p className="text-slate-500 text-sm">A new window will run the test. You’ll be taken to the results when it finishes.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 bg-slate-950 min-h-screen">
@@ -116,6 +132,7 @@ export default function CreateTest() {
             >
               <option value="fill">Fill</option>
               <option value="click">Click</option>
+              <option value="assert">Assert (text present)</option>
             </select>
             <input
               placeholder="Value"
@@ -188,17 +205,26 @@ export default function CreateTest() {
           type="button"
           className="bg-violet-600 text-white px-6 py-3 rounded-lg mt-4 ml-4 hover:bg-violet-500 transition"
           onClick={async () => {
+            setSavingAndRunning(true);
             try {
               const createRes = await api.post("/create-test", { name, url, profile, steps });
               const id = createRes.data._id;
-              await api.post(`/run-test/${id}`);
-              alert("Test executed!");
+              const runRes = await api.post(`/run-test/${id}`);
+              const execution = runRes.data?.execution;
+              if (execution?._id) {
+                router.push(`/execution/${execution._id}`);
+              } else {
+                alert("Test executed!");
+              }
             } catch (err) {
               alert("Error running test");
+            } finally {
+              setSavingAndRunning(false);
             }
           }}
+          disabled={savingAndRunning}
         >
-          Save & Run
+          {savingAndRunning ? "Saving & starting run…" : "Save & Run"}
         </button>
       </div>
     </div>

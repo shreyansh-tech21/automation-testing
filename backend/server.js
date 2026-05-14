@@ -7,7 +7,8 @@ const path = require('path');
 const fs = require('fs');
 const Test = require('./models/Test');
 const runner = require('./runner');
-const Execution=require('./models/Execution')
+const { runApiTest } = require("./services/apiRunner");
+const Execution = require('./models/Execution');
 const generateHTMLReport=require('./utils/generateReport');
 const { analyzeExecution } = require("./services/aiService");
 const { validateCreateTest } = require("./schemas/createTest");
@@ -19,6 +20,7 @@ const allowRoles = require("./middleware/roleMiddleware");
 const User = require("./models/User");
 const authRoutes = require("./routes/authRoutes");
 const issueRoutes = require("./routes/IssueRoutes");
+const aiRoutes=require("./routes/aiRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,6 +39,8 @@ mongoose.connect(mongoUri)
 
 // Auth routes (public)
 app.use("/auth", authRoutes);
+
+
 
 // Admin: list users (admin only)
 app.get("/users", auth, allowRoles("admin"), async (req, res) => {
@@ -83,11 +87,31 @@ app.post("/create-test", auth, allowRoles("admin", "tester"), async (req, res) =
   }
   const parsed = validateCreateTest(req.body);
   if (!parsed.success) {
-    const messages = parsed.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`);
+    const issues = parsed.error?.issues ?? parsed.error?.errors ?? [];
+    const messages = Array.isArray(issues) ? issues.map((e) => `${(e.path || []).join(".")}: ${e.message}`) : [String(parsed.error)];
     return res.status(400).json({ error: "Validation failed", details: messages });
   }
   try {
-    const test = await Test.create(parsed.data);
+    const data = parsed.data;
+    const firstStep = data.steps && data.steps[0];
+    const isApiSteps = firstStep && typeof firstStep.method === "string" && typeof firstStep.url === "string";
+    const testType = data.testType === "api" || isApiSteps ? "api" : (data.testType || "ui");
+    const profile = testType === "api" ? "api" : data.profile;
+    const steps = (data.steps || []).map((s) => {
+      if (s.method != null && s.url != null) {
+        return { name: s.name, method: s.method, url: s.url, headers: s.headers, body: s.body, extract: s.extract, assert: s.assert };
+      }
+      return s;
+    });
+    const payload = {
+      name: data.name,
+      url: data.url,
+      baseUrl: data.baseUrl,
+      profile,
+      testType,
+      steps,
+    };
+    const test = await Test.create(payload);
     res.json(test);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -100,8 +124,26 @@ app.get('/tests', auth, allowRoles("admin", "tester"), async (req, res) => {
     return res.status(503).json({ error: 'Database not connected' });
   }
   try {
-    const tests = await Test.find({}).select('_id name url profile').lean();
+    const tests = await Test.find({}).select('_id name url profile testType').lean();
     res.json(tests);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get single test by id (for detail/edit)
+app.get('/tests/:id', auth, allowRoles("admin", "tester"), async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: 'Database not connected' });
+  }
+  const id = req.params.id;
+  if (id.length !== 24 || !/^[a-f0-9]+$/i.test(id)) {
+    return res.status(400).json({ error: 'Invalid test id', id });
+  }
+  try {
+    const test = await Test.findById(id).lean();
+    if (!test) return res.status(404).json({ error: 'Test not found', id });
+    res.json(test);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -236,6 +278,24 @@ app.get('/executions/:id', auth, viewerOrAbove, async (req, res) => {
   }
 });
 
+// Delete an execution — admin & tester
+app.delete('/executions/:id', auth, allowRoles('admin', 'tester'), async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: 'Database not connected' });
+  }
+  const id = req.params.id;
+  if (id.length !== 24 || !/^[a-f0-9]+$/i.test(id)) {
+    return res.status(400).json({ error: 'Invalid execution id', id });
+  }
+  try {
+    const deleted = await Execution.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ error: 'Execution not found', id });
+    res.json({ deleted: true, id, testName: deleted.testName });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Serve screenshot for a failed step
 app.get('/executions/:id/steps/:stepIndex/screenshot', auth, viewerOrAbove, async (req, res) => {
   try {
@@ -277,12 +337,42 @@ app.post('/run-test/:id', auth, allowRoles("admin", "tester"), async (req, res) 
   if (!test) {
     return res.status(404).json({ error: 'Test not found', id });
   }
+  const firstStep = test.steps && test.steps[0];
+  const isApiBySteps = firstStep && firstStep.method && firstStep.url;
+  const runAsApi = test.testType === "api" || isApiBySteps;
   try {
+    if (runAsApi) {
+      const results = await runApiTest(test);
+      const overallStatus = results.some((r) => r.status === "Failed") ? "Failed" : "Passed";
+      const execution = await Execution.create({
+        testId: test._id,
+        testName: test.name,
+        type: "api",
+        results,
+        overallStatus,
+      });
+      notifyTestExecution(execution).catch((err) => console.error("Slack notify:", err.message));
+      return res.json({ execution, message: "API test executed" });
+    }
+
+    // UI tests require a start URL
+    const url = test.url && String(test.url).trim();
+    if (!url) {
+      return res.status(400).json({
+        error: "UI test has no start URL",
+        hint: "Add a 'url' to this test, or if it is an API test set testType to 'api'.",
+        testId: test._id,
+        testName: test.name,
+      });
+    }
+
+    // Run test to completion (Playwright opens in its own window), then create execution and respond
     const results = await runner.runTest(test);
     const execution = await Execution.create({
       testId: test._id,
       testName: test.name,
       profile: test.profile,
+      url: test.url,
       results: results.results,
       overallStatus: results.overallStatus,
     });
@@ -293,6 +383,8 @@ app.post('/run-test/:id', auth, allowRoles("admin", "tester"), async (req, res) 
     res.status(500).json({ error: err.message });
   }
 });
+
+app.use("/ai",aiRoutes);
 
 // Slack slash command: /run [profile] — must respond within 3s, then post result to channel
 const skipSlackVerify = process.env.SKIP_SLACK_VERIFY === "1" || process.env.SKIP_SLACK_VERIFY === "true";
@@ -376,6 +468,7 @@ app.post("/slack/command", (req, res, next) => {
           testId: test._id,
           testName: test.name,
           profile: test.profile,
+          url: test.url,
           results: result.results,
           overallStatus: result.overallStatus,
         });
