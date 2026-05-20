@@ -1,3 +1,6 @@
+# AutoTestIQ
+
+Full-stack **test automation** workspace: create and run **UI** tests (Playwright with self-healing locators) and **API** tests from a **Next.js** dashboard, persist **executions** in **MongoDB**, and optionally hook **Slack** and **AI** analysis.
 
 
 ## Highlights
@@ -135,14 +138,8 @@ Useful backend references: `backend/TEST-SCRIPTS.md`, `backend/PROJECT-REVIEW.md
 
 ---
 
-## License
-
-Specify your license here (e.g. MIT) or remove this section if the repo is private only.
-
----
 
 ## Author
 
-**Your name** — [LinkedIn](https://www.linkedin.com/in/YOUR_PROFILE) · [Portfolio](https://YOUR_SITE)  
+**Shreyansh Karamtot** — [LinkedIn](https://www.linkedin.com/in/shreyansh-k-50a7871b6) 
 
-*Update the links above when you publish.*
