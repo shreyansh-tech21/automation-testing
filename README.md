@@ -1,23 +1,4 @@
-# Automation Testing Platform
 
-Full-stack **test automation** workspace: create and run **UI** tests (Playwright with self-healing locators) and **API** tests from a **Next.js** dashboard, persist **executions** in **MongoDB**, and optionally hook **Slack** and **AI** analysis.
-
----
-
-## Demo
-
-The best way to understand the product is a short walkthrough video.
-
-**[Watch the demo →](YOUR_VIDEO_URL_HERE)**  
-*Replace `YOUR_VIDEO_URL_HERE` with your YouTube or Loom link after you publish.*
-
-Tip: On GitHub you can later swap that line for a thumbnail link, for example:
-
-```markdown
-[![Demo — click to play](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
-```
-
----
 
 ## Highlights
 
